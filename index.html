@@ -13,7 +13,7 @@
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #f0f4f8; }
         
-        /* Scrollbar Fina e Elegante */
+        /* Scrollbar Fina */
         .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
@@ -161,10 +161,9 @@
                              <span class="text-[9px] text-slate-400 block">de <span id="total-turmas">0</span> totais</span>
                         </div>
                     </div>
-                    
-                    <!-- Elementos Ocultos para compatibilidade de cálculo -->
-                    <span id="media-alunos" class="hidden">0.0</span>
-                    <span id="total-alunos-final" class="hidden">0</span>
+                    <!-- Hidden Spans para evitar erros de referencia -->
+                    <span id="total-alunos-final" class="hidden"></span>
+                    <span id="media-alunos" class="hidden"></span>
 
                 </div>
             </div>
@@ -209,13 +208,13 @@
                                 <label class="text-[10px] font-bold text-slate-500 uppercase block mb-1">Hora Professor</label>
                                 <div class="flex items-center"><span class="text-slate-400 mr-1 font-bold text-sm">R$</span><input type="number" id="opex-valor-hora-professor" value="220" class="bl2-input"></div>
                             </div>
-                            <!-- RÓTULOS ATUALIZADOS 1/5 ESCOLAS -->
+                            <!-- RÓTULOS ATUALIZADOS 1 POR ESCOLA -->
                             <div>
-                                <label class="text-[10px] font-bold text-slate-500 uppercase block mb-1">Custo Assistente/mês (1/5 escolas)</label>
+                                <label class="text-[10px] font-bold text-slate-500 uppercase block mb-1">Custo Assistente/mês (1 por escola)</label>
                                 <div class="flex items-center"><span class="text-slate-400 mr-1 font-bold text-sm">R$</span><input type="number" id="opex-custo-assistente" value="5000" class="bl2-input"></div>
                             </div>
                             <div>
-                                <label class="text-[10px] font-bold text-slate-500 uppercase block mb-1">Custo Analista II/mês (1/5 escolas)</label>
+                                <label class="text-[10px] font-bold text-slate-500 uppercase block mb-1">Custo Analista II/mês (1 por escola)</label>
                                 <div class="flex items-center"><span class="text-slate-400 mr-1 font-bold text-sm">R$</span><input type="number" id="opex-custo-analista2" value="7000" class="bl2-input"></div>
                             </div>
                             <div class="col-span-2 border-t border-slate-100 pt-4 mt-2">
@@ -425,7 +424,8 @@
         { id: 'c7', produto: "Criação de Artes Digitais", qtd: 1, unidade: 'grupo3', vlrAquisicao: 35000.00 },
         { id: 'n1', produto: "Kit Automação Residencial", qtd: 1, unidade: 'turma', vlrAquisicao: 15040.00 },
         { id: 'n2', produto: "Material Didático", qtd: 1, unidade: 'turma', vlrAquisicao: 3300.00, isDespesa: true },
-        { id: 'n3', produto: "Custo Fixo Manutenção e Conservação", qtd: 1, unidade: 'aluno', vlrAquisicao: 165.00, isDespesa: true } 
+        { id: 'n3', produto: "Custo Fixo Manutenção e Conservação", qtd: 1, unidade: 'aluno', vlrAquisicao: 165.00, isDespesa: true }, // NOVO ITEM
+        { id: 'n4', produto: "Custo Fixo Manutenção e Conservação (Extra)", qtd: 1, unidade: 'global', vlrAquisicao: 3100000.00, isDespesa: true } // NOVO ITEM GLOBAL
     ];
 
     // --- REFERÊNCIAS DOM ---
@@ -523,14 +523,16 @@
             else if (item.unidade === 'grupo3') unidadeDisplay = '1/3 Escolas';
             else if (item.unidade === 'turma') unidadeDisplay = 'p/ Turma';
             else if (item.unidade === 'aluno') unidadeDisplay = 'p/ Aluno';
+            else if (item.unidade === 'global') unidadeDisplay = 'Custo Global';
 
             let custoHtml = '';
+            // Se for global, o input de qtd pode ser fixo em 1 ou editável, mas o valor base é o principal
             if (item.isDespesa) {
                 custoHtml = `
                     <div class="flex items-center text-xs">
                         <input type="radio" name="c_${item.id}" value="aquisicao" class="mr-2 cursor-pointer text-cyan-600 focus:ring-cyan-600" checked>
                         <span class="mr-1 text-slate-600 font-bold">Custo:</span>
-                        <input type="number" class="capex-vlr-base w-20 border border-slate-300 rounded px-1 text-right text-slate-700 focus:border-cyan-600 focus:outline-none text-xs" value="${item.vlrAquisicao}">
+                        <input type="number" class="capex-vlr-base w-24 border border-slate-300 rounded px-1 text-right text-slate-700 focus:border-cyan-600 focus:outline-none text-xs" value="${item.vlrAquisicao}">
                     </div>`;
             } else {
                 custoHtml = `
@@ -545,11 +547,22 @@
                         <span class="capex-display-locacao font-bold text-slate-700">${fmt(item.vlrAquisicao * 0.3)}</span>
                     </div>`;
             }
+            
+            // Checkbox logic for optional items
+            let checkboxHtml = `<input type="checkbox" class="capex-check h-4 w-4 text-cyan-600 rounded border-gray-300 focus:ring-cyan-600 cursor-pointer" checked>`;
+            // Se for o item novo global, pode vir desmarcado por padrão ou marcado, deixarei marcado.
+            
+            let qtdInput = `<input type="number" class="capex-qtd w-12 border border-slate-300 rounded text-center py-1 text-slate-700 focus:border-cyan-600 focus:outline-none text-xs font-bold" value="${item.qtd}">`;
+            if(item.unidade === 'global') {
+                 // Para item global, quantidade geralmente é 1
+                 qtdInput = `<input type="number" class="capex-qtd w-12 border border-slate-300 rounded text-center py-1 text-slate-700 focus:border-cyan-600 focus:outline-none text-xs font-bold" value="1" readonly>`;
+            }
+
             tr.innerHTML = `
-                <td class="py-3 px-4 align-top"><input type="checkbox" class="capex-check h-4 w-4 text-cyan-600 rounded border-gray-300 focus:ring-cyan-600 cursor-pointer" checked></td>
+                <td class="py-3 px-4 align-top">${checkboxHtml}</td>
                 <td class="py-3 px-4 align-top font-bold text-slate-700 text-xs">${item.produto}</td>
                 <td class="py-3 px-4 align-top text-center">
-                    <input type="number" class="capex-qtd w-12 border border-slate-300 rounded text-center py-1 text-slate-700 focus:border-cyan-600 focus:outline-none text-xs font-bold" value="${item.qtd}">
+                    ${qtdInput}
                 </td>
                 <td class="py-3 px-4 align-top text-[10px] text-slate-400 font-bold uppercase tracking-wide pt-4">${unidadeDisplay}</td>
                 <td class="py-3 px-4 align-top space-y-1">${custoHtml}</td>
@@ -598,9 +611,9 @@
         const sAnal2 = parseFloat(document.getElementById('opex-custo-analista2')?.value) || 0;
         const sAnal3 = parseFloat(document.getElementById('opex-custo-analista3')?.value) || 0;
         
-        // Equipe (1:5 Schools Ratio - Updated)
-        const qAssist = Math.ceil(totEscolas / 5);
-        const qAnal2 = Math.ceil(totEscolas / 5);
+        // Equipe (1:1 - UM POR ESCOLA)
+        const qAssist = totEscolas * 1;
+        const qAnal2 = totEscolas * 1;
         const qAnal3 = 2; // Fixos
 
         document.getElementById('opex-qtd-assistentes').innerText = qAssist;
@@ -633,6 +646,7 @@
             const id = row.dataset.id;
             const itemData = dadosCapex.find(d => d.id === id);
             const checkEl = row.querySelector('.capex-check');
+            
             if(!checkEl || !checkEl.checked) {
                 const totItemEl = row.querySelector('.capex-total-item');
                 if(totItemEl) totItemEl.innerText = fmt(0);
@@ -657,8 +671,9 @@
             let mult = 0;
             if (itemData.unidade === 'escola') mult = totEscolas;
             else if (itemData.unidade === 'grupo3') mult = Math.ceil(totEscolas / 3);
-            else if (itemData.unidade === 'turma') mult = totTurmasEfetivas; 
-            else if (itemData.unidade === 'aluno') mult = totAlunosEfetivos; // NEW MULTIPLIER
+            else if (itemData.unidade === 'turma') mult = totTurmasEfetivas;
+            else if (itemData.unidade === 'aluno') mult = totAlunosEfetivos;
+            else if (itemData.unidade === 'global') mult = 1; // Fixo
 
             const totalItem = qtd * vlrFinal * mult;
             totalCapex += totalItem;
@@ -821,7 +836,7 @@
                 ['Modelo/Horas', modeloText, ''],
                 ['Monitores', `Bolsa: ${fmt(parse(document.getElementById('opex-bolsa-monitor').value))} / Turma Efetiva`, document.getElementById('opex-custo-monitores').innerText],
                 ['Professores', `Hora: ${fmt(parse(document.getElementById('opex-valor-hora-professor').value))} / ${modHoras}h Anuais`, document.getElementById('opex-custo-professores').innerText],
-                ['Equipe Técnica', `(${document.getElementById('opex-qtd-assistentes').innerText} Assis, ${document.getElementById('opex-qtd-analistas2').innerText} An.II, ${document.getElementById('opex-qtd-analistas3').innerText} An.III) - 1 Assis/Anal2 a cada 5 escolas`, document.getElementById('opex-custo-equipe').innerText],
+                ['Equipe Técnica', `(${document.getElementById('opex-qtd-assistentes').innerText} Assis, ${document.getElementById('opex-qtd-analistas2').innerText} An.II, ${document.getElementById('opex-qtd-analistas3').innerText} An.III) - 1 Assis/Anal2 por escola`, document.getElementById('opex-custo-equipe').innerText],
                 ['Alimentação', `Alunos Efetivos (${document.getElementById('total-alunos-efetivos').innerText})`, document.getElementById('opex-custo-lanche-display').innerText],
                 [{content: 'TOTAL OPEX', styles: {fontStyle: 'bold', fillColor: [240, 244, 248]}}, '', {content: document.getElementById('total-opex-consolidado').innerText, styles: {fontStyle: 'bold', fillColor: [240, 244, 248]}}]
             ];
